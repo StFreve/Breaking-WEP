@@ -3,17 +3,19 @@
 #include <Attack.h>
 #include <set>
 #include <mutex>
-using namespace Crypto;
-namespace Attack {
-    class Klein : public IAttack {
+using namespace crypto;
+namespace attack {
+    class Klein : public Attack {
     public:
         static KnownInfo& find_permutation( KnownInfo& info );
         Klein( const std::set<std::pair<Key, Key> >& input_data, size_t keyLength = 13 );
-        Crypto::Key find_key();
+        crypto::Key find_key();
+
     private:
-        Crypto::byte find_next_key_byte( KnownInfo& info );
+        crypto::byte find_next_key_byte( KnownInfo& info );
         void compute_in_thread( size_t a, size_t b );
-        
+        void free_resources();
+
         std::vector<KnownInfo> data;
         size_t keyLength;
 
@@ -21,10 +23,6 @@ namespace Attack {
         std::vector<size_t> interest;
         std::mutex interest_mutex;
 
-        void free_resources() {
-            data.clear();
-            interest.clear();
-        }
         bool finished;
     };
 }

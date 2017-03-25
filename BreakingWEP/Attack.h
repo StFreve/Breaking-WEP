@@ -1,17 +1,23 @@
 #pragma once
 #include <Crypto.h>
 
-namespace Attack {
+namespace attack {
     struct KnownInfo {
-        Crypto::Key key;
-        Crypto::Key KeyStream;
+        crypto::Key key;
+        crypto::Key KeyStream;
 
-        Crypto::Permutation S;
-        Crypto::Permutation Si;
+        crypto::Permutation S;
+        crypto::Permutation Si;
         size_t j;
     };
-    class IAttack {
+    class Attack {
+    protected:
+        typedef void( *changed_callback )( size_t, crypto::byte );
+
+        changed_callback changed;
     public:
-        virtual Crypto::Key find_key() = 0;
+        Attack() : changed( NULL ) {}
+        virtual crypto::Key find_key() = 0;
+        virtual void set_callback( changed_callback callback ) { this->changed = callback; }
     };
 }

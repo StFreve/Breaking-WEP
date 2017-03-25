@@ -1,12 +1,13 @@
 #include <Klein.h>
 #include <thread>
 #include <algorithm>
-namespace Attack {
+namespace attack {
     Klein::Klein( const std::set<std::pair<Key, Key>>& input_data, size_t keyLength )
         : finished( false )
         , keyLength( keyLength )
     {
         this->data.reserve( input_data.size() );
+        found_key.reserve( keyLength );
 
         for ( auto val : input_data )
         {
@@ -20,13 +21,16 @@ namespace Attack {
             this->data.push_back( info );
         }
     }
-    Crypto::Key Klein::find_key()
+    crypto::Key Klein::find_key()
     {
         if ( finished )
             return found_key;
 
         while ( found_key.size() < keyLength ) {
             interest.assign( 256, 0 );
+        #ifndef FASTER_ATTACK
+            found_key.push_back( 0 );
+        #endif
             const size_t thread_count = 11;
             std::thread t[ thread_count ];
             size_t step = this->data.size() / thread_count;
@@ -34,17 +38,19 @@ namespace Attack {
                 t[ i ] = std::thread( &Klein::compute_in_thread, this, i*step, ( i + 1 == thread_count ) ? this->data.size() : ( i + 1 )*step );
             }
 
-            //Join the threads with the main thread
+            // Join the threads with the main thread
             for ( int i = 0; i < thread_count; ++i ) {
                 t[ i ].join();
             }
-            std::vector<std::pair<int, Crypto::byte> > res_vec( 256 );
+        #ifdef FASTER_ATTACK
+            std::vector<std::pair<int, crypto::byte> > res_vec( 256 );
             for ( int i = 0; i < 256; ++i ) {
                 res_vec[ i ] = std::make_pair( interest[ i ], i );
             }
             std::sort( res_vec.begin(), res_vec.end() );
 
             found_key.push_back( res_vec.back().second );
+        #endif
         }
 
         finished = true;
@@ -90,13 +96,35 @@ namespace Attack {
     {
         for ( size_t i = a; i < b; ++i ) {
             KnownInfo& info = this->data[ i ];
+        #ifndef FASTER_ATTACK
+            if ( found_key.size() > 1 )
+            {
+                info.key.push_back( found_key[ found_key.size() - 2] );
+            }
+        #else 
             if ( !found_key.empty() )
+            {
                 info.key.push_back( found_key.back() );
-            Crypto::byte next_key_byte = Klein::find_next_key_byte( info );
+            }
+        #endif
+            crypto::byte next_key_byte = Klein::find_next_key_byte( info );
 
             interest_mutex.lock();
             ++interest[ next_key_byte ];
+        #ifndef FASTER_ATTACK
+            if ( interest[ found_key.back() ] < interest[ next_key_byte ] )
+            {
+                found_key[found_key.size() - 1] = next_key_byte;
+                if ( this->changed )
+                    this->changed( found_key.size(), next_key_byte );
+            }
+        #endif
             interest_mutex.unlock();
         }
+    }
+    void Klein::free_resources()
+    {
+        data.clear();
+        interest.clear();
     }
 }

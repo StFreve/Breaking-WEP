@@ -6,7 +6,7 @@
 #include <iostream>
 #include <string> 
 
-namespace Crypto {
+namespace crypto {
     typedef unsigned char byte;
     typedef std::vector<byte> PlainText;
     typedef std::vector<byte> CipherText;
@@ -26,8 +26,10 @@ namespace Crypto {
     typedef std::shared_ptr<IDecoder> Decoder;
 
     class ICipher {
+    public:
         virtual Encoder  encoder() = 0;
         virtual Decoder  decoder() = 0;
+        virtual bool     check( const PlainText& plain, const CipherText& cipher ) = 0;
     };
 
     template<typename TextType>
