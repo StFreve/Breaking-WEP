@@ -22,7 +22,7 @@ void RC4::print_current_state( size_t i, size_t j, Permutation S )
 bool RC4::is_key( const crypto::Key & key, const crypto::Key keyStream )
 {
     RC4 rc4( key );
-    return rc4.check( crypto::arrayToByteVector( std::string( "\0", keyStream.size() ), keyStream.size() ), keyStream );
+    return rc4.check(PlainText(keyStream.size(), 0), keyStream );
 }
 bool RC4::check( const PlainText & plain, const CipherText & cipher )
 {
