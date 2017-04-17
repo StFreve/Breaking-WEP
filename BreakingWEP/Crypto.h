@@ -46,7 +46,7 @@ namespace crypto {
     std::string toHexSymbol( const TextType& text ) {
         std::ostringstream hexStream;
         hexStream.fill( '0' );
-        hexStream << std::uppercase << std::setw( 3 ) << /*std::hex <<*/ (int) text;
+        hexStream << std::uppercase << std::setw( 2 ) << std::hex << (int) text;
         return hexStream.str();
     }
     template<typename TextType>

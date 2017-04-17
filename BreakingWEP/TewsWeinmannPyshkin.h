@@ -10,8 +10,13 @@ using namespace crypto;
 namespace attack {
     class TewsWeinmannPyshkin : public Attack {
     public:
+        typedef std::pair<Key, Key> RawData;
+        typedef std::set<RawData> RawDataSet;
+        typedef std::vector<KnownInfo> ProcessedData;
+
+    public:
         // key pair is (IV,KeyStream)
-        TewsWeinmannPyshkin( const std::set<std::pair<Key, Key> >& input_data, size_t keyLength = 13 );
+        TewsWeinmannPyshkin( const RawDataSet& input_data, size_t keyLength = 13 );
         crypto::Key find_key();
 
     private:
@@ -28,7 +33,7 @@ namespace attack {
         crypto::byte getKeyByte( const Key& key, const Key& IV, std::vector<std::vector<crypto::byte> >& Sigma, const std::vector<size_t>& SigmaShift, size_t index );
         void selfCheck( size_t depth = 3 );
     #endif
-        std::vector<KnownInfo> data;
+        ProcessedData data;
         std::vector<std::vector<size_t> > Sigma;
 
     #ifndef FASTER_ATTACK
@@ -39,7 +44,7 @@ namespace attack {
 
         void free_resources();
 
-        Key found_key;
+        Key foundKey;
         size_t keyLength;
         size_t dataQuantity;
         bool finished;

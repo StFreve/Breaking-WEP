@@ -10,6 +10,7 @@
 #include <thread>
 #include <mutex>
 #include <TewsWeinmannPyshkin.h>
+#include <StreamTWP.h>
 #include <set>
 using namespace crypto;
 using namespace attack;
@@ -20,6 +21,63 @@ using std::mutex;
 using std::pair;
 using std::cout;
 using std::endl;
+
+class TestDataStream : public attack::StreamData<attack::StreamTWP::RawData> {
+    Key rootKey;
+public:
+    TestDataStream( size_t keyLength = 13 )
+        : rootKey( generate_key( keyLength ) ) {
+        srand( time( 0 ) );
+    }
+
+    // Inherited via StreamData
+    virtual DataSet get_next( size_t dataSize) override
+    {
+        DataSet data;
+        while ( data.size() < dataSize ) {
+            data.insert( get_next() );
+        }
+        return data;
+    }
+    virtual Data get_next() override
+    {
+        Key key_init = { ( crypto::byte ) rand() , ( crypto::byte ) rand(),( crypto::byte ) rand(), ( crypto::byte ) rand() };
+        Key key = key_init; key.insert( key.end(), rootKey.begin(), rootKey.end() );
+        RC4 rc4( key );
+        Encoder rc4_enc = rc4.encoder();
+        PlainText plain( key.size(), 0 );
+        CipherText cipher = rc4_enc->encrypt( plain );
+        return Data( key_init, cipher );
+    }
+    virtual bool will_lock() override
+    {
+        return false;
+    }
+    Key get_root_key() {
+        return rootKey;
+    }
+private:
+    set<pair<Key, Key> > generate_date( size_t data_size, const Key& rootKey ) {
+        set<pair<Key, Key> > data;
+        while ( data.size() < data_size ) {
+            Key key_init = { ( crypto::byte ) rand() , ( crypto::byte ) rand(),( crypto::byte ) rand(), ( crypto::byte ) rand() };
+            Key key = key_init; key.insert( key.end(), rootKey.begin(), rootKey.end() );
+            RC4 rc4( key );
+            Encoder rc4_enc = rc4.encoder();
+            PlainText plain( key.size(), 0 );
+            CipherText cipher = rc4_enc->encrypt( plain );
+            data.insert( make_pair( key_init, cipher ) );
+        }
+        return data;
+    }
+
+    crypto::Key generate_key( size_t keyLength ) {
+        Key key( keyLength );
+        std::for_each( key.begin(), key.end(), []( crypto::byte& keyByte ) { keyByte = rand(); } );
+        return key;
+    }
+};
+
 void printAtPoint( int x, int y, const std::string& text )
 {
     DWORD dw;
@@ -45,11 +103,11 @@ int cursorY()
     return csbi.dwCursorPosition.Y;
 }
 void printKlein( size_t i, crypto::byte key_byte ) {
-    printAtPoint( 0 + ( i - 1 ) * 4, cursorY(), toHexSymbol( key_byte ) );
+    printAtPoint( 0 + ( i - 1 ) * 3, cursorY(), toHexSymbol( key_byte ) );
 }
 
 void printTWP( size_t i, crypto::byte key_byte ) {
-    printAtPoint( 0 + i * 4, cursorY(), toHexSymbol( key_byte ) );
+    printAtPoint( 0 + i * 3, cursorY(), toHexSymbol( key_byte ) );
 }
 
 Key bytes_to_found = { 0x2C, 0x5F, 0x25, 0x3, 0x6, 0x7, 0xAC, 0xCB, 0x13, 0x02, 0x24, 0x11, 0x12 };
@@ -144,7 +202,7 @@ void no_print_test() {
     bool isCorrect = false;
     printf( "Klein\t\tTWP\r\n" );
     while ( T-- ) {
-        Key rootKey = generate_key(13);
+        Key rootKey = generate_key( 13 );
         auto data = generate_date( 50000, rootKey );
         clock_t startTime = clock();
         Attack* att = new Klein( data, rootKey.size() );
@@ -169,19 +227,54 @@ void strongKey() {
     RC4 rc4( key );
     Encoder rc4_enc = rc4.encoder();
     crypto::byte result = 0;
-    for( int p = 0; p < rootKey.size(); ++p )
-    for ( int i = 0; i <= p; ++i )
-    {
-        result = 0;
-        for ( int j = i; j <= p; ++j ) {
-            result += j + rootKey[ j ] + 4;
+    for ( int p = 0; p < rootKey.size(); ++p )
+        for ( int i = 0; i <= p; ++i )
+        {
+            result = 0;
+            for ( int j = i; j <= p; ++j ) {
+                result += j + rootKey[ j ] + 4;
+            }
+            if ( result == 0 )
+                cout << p << " " << i << endl;
         }
-        if ( result == 0 )
-            cout << p << " " << i << endl;
+}
+
+void print_stream_test() {
+    srand( time( 0 ) );
+    const size_t TESTS = 10;
+    size_t T = TESTS;
+    int KleinOK = 0;
+    int TWPOK = 0;
+    bool isCorrect = false;
+    while ( T-- ) {
+        StreamTWP::StreamDataPtr stream( new TestDataStream(16));
+        Key rootKey = ( (TestDataStream*) stream.get() )->get_root_key();
+
+        cout << "Generated Root Key:\n" << toHexString( rootKey, " " ) << endl << endl;
+
+        clock_t startTime = clock();
+
+        startTime = clock();
+
+        Attack* att = new StreamTWP( stream, rootKey.size() );
+    #ifndef FASTER_ATTACK
+        att->set_callback( printTWP );
+        printAtPoint( 0, cursorY(), crypto::toHexString( vector<crypto::byte>( rootKey.size(), 0 ), " " ) );
+    #else
+        cout << toHexString( att->find_key(), " " ) << endl;
+    #endif
+
+        isCorrect = att->find_key() == rootKey;
+        printf( "\nTWP Attack Time: %f. Status: %s\n\n", double( clock() - startTime ) / CLOCKS_PER_SEC, isCorrect ? "OK" : "FAILED" );
+        TWPOK += isCorrect;
     }
+
+    printf( "Klein: OK = %d  Failed = %d\n", KleinOK, TESTS - KleinOK );
+    printf( "TWP: OK = %d  Failed = %d", TWPOK, TESTS - TWPOK );
+
 }
 void main() {
     //strongKey();
     //return;
-    no_print_test();
+    print_stream_test();
 }

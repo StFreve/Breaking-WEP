@@ -7,11 +7,11 @@
 #include <RC4.h>
 
 namespace attack {
-    TewsWeinmannPyshkin::TewsWeinmannPyshkin( const std::set<std::pair<Key, Key>>& input_data, size_t keyLength )
+    TewsWeinmannPyshkin::TewsWeinmannPyshkin( const RawDataSet& input_data, size_t keyLength )
         : Sigma( keyLength, std::vector<size_t>( 256, 0 ) )
         , finished( false )
         , keyLength( keyLength )
-        , found_key( keyLength, 0 )
+        , foundKey( keyLength, 0 )
         , dataQuantity( input_data.size() )
     #ifndef FASTER_ATTACK
         , most_common_sigma( keyLength, 0 )
@@ -35,10 +35,9 @@ namespace attack {
     crypto::Key TewsWeinmannPyshkin::find_key()
     {
         if ( finished )
-            return found_key;
-        const size_t thread_count = this->Sigma.size();
+            return foundKey;
+        const size_t thread_count = this->keyLength;
         std::vector<std::thread> t( thread_count );
-        size_t step = 256 / thread_count;
         for ( size_t i = 0; i < thread_count; ++i ) {
             t[ i ] = std::thread( &TewsWeinmannPyshkin::find_sigma, this, i );
         }
@@ -59,16 +58,16 @@ namespace attack {
             Sigma.push_back( res_vec.back().second );
         }
 
-        found_key[ 0 ] = ( Sigma[ 0 ] );
+        foundKey[ 0 ] = ( Sigma[ 0 ] );
 
         for ( size_t i = 1; i < Sigma.size(); ++i )
         {
-            found_key[ i ] = ( Sigma[ i ] - Sigma[ i - 1 ] );
+            foundKey[ i ] = ( Sigma[ i ] - Sigma[ i - 1 ] );
         }
     #ifndef FASTER_ATTACK
         if ( this->changed ) {
             for ( size_t i = 0; i < this->keyLength; ++i ) {
-                this->changed( i, found_key[ i ] );
+                this->changed( i, foundKey[ i ] );
             }
         }
         size_t testing_example = ( rand() * rand() ) % this->data.size();
@@ -76,7 +75,7 @@ namespace attack {
         Key keyStream = this->data[ testing_example ].KeyStream;
 
         Key key = IV;
-        key.insert( key.end(), found_key.begin(), found_key.end() );
+        key.insert( key.end(), foundKey.begin(), foundKey.end() );
         if ( !RC4::is_key( key, keyStream ) ) {
             keyRanking( IV, keyStream, 60 );
         }
@@ -85,7 +84,7 @@ namespace attack {
         finished = true;
         free_resources();
 
-        return found_key;
+        return foundKey;
     }
     void TewsWeinmannPyshkin::find_sigma( size_t i )
     {
@@ -100,16 +99,16 @@ namespace attack {
                 this->most_common_sigma[ i ] = next_key_byte;
                 keyMutex.lock();
                 if ( i == 0 )
-                    this->found_key[ i ] = this->most_common_sigma[ i ];
+                    this->foundKey[ i ] = this->most_common_sigma[ i ];
                 else
-                    this->found_key[ i ] = this->most_common_sigma[ i ] - this->most_common_sigma[ i - 1 ];
+                    this->foundKey[ i ] = this->most_common_sigma[ i ] - this->most_common_sigma[ i - 1 ];
                 if ( this->changed )
-                    changed( i, found_key[ i ] );
+                    changed( i, foundKey[ i ] );
 
                 if ( i + 1 < this->most_common_sigma.size() ) {
-                    this->found_key[ i + 1 ] = ( this->most_common_sigma[ i + 1 ] - this->most_common_sigma[ i ] );
+                    this->foundKey[ i + 1 ] = ( this->most_common_sigma[ i + 1 ] - this->most_common_sigma[ i ] );
                     if ( this->changed )
-                        changed( i + 1, found_key[ i + 1 ] );
+                        changed( i + 1, foundKey[ i + 1 ] );
                 }
                 keyMutex.unlock();
             }
@@ -153,8 +152,8 @@ namespace attack {
                     changed( i, key.back() );
             }
             if ( RC4::is_key( key, keyStream ) ) {
-                found_key.clear();
-                found_key.insert( found_key.end(), key.begin() + IV.size(), key.end() );
+                this->foundKey.clear();
+                this->foundKey.insert( foundKey.end(), key.begin() + IV.size(), key.end() );
                 return true;
             }
             ++SigmaShift.back();
@@ -340,8 +339,8 @@ namespace attack {
                     break;
                 }
                 else if ( i == 4 ) {
-                    found_key.clear();
-                    found_key.insert( found_key.end(), key.begin() + this->data[ 0 ].key.size(), key.end() );
+                    foundKey.clear();
+                    foundKey.insert( foundKey.end(), key.begin() + this->data[ 0 ].key.size(), key.end() );
                     return;
                 }
             }

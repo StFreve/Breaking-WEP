@@ -173,6 +173,7 @@
   <ItemGroup>
     <ClInclude Include="Attack.h" />
     <ClInclude Include="Crypto.h" />
+    <ClInclude Include="StreamTWP.h" />
     <ClInclude Include="Klein.h" />
     <ClInclude Include="RC4.h" />
     <ClInclude Include="TewsWeinmannPyshkin.h" />
@@ -182,6 +183,7 @@
     <ClCompile Include="Klein.cpp" />
     <ClCompile Include="RC4.cpp" />
     <ClCompile Include="Source.cpp" />
+    <ClCompile Include="StreamTWP.cpp" />
     <ClCompile Include="TewsWeinmannPyshkin.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

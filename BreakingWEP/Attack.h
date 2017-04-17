@@ -1,6 +1,7 @@
 #pragma once
+#include <memory>
 #include <Crypto.h>
-
+#include <set>
 namespace attack {
     struct KnownInfo {
         crypto::Key key;
@@ -20,4 +21,22 @@ namespace attack {
         virtual crypto::Key find_key() = 0;
         virtual void set_callback( changed_callback callback ) { this->changed = callback; }
     };
+    template<typename Data>
+    class StreamData {
+    public:
+        typedef std::set<Data> DataSet;
+        typedef Data Data;
+
+        StreamData() {}
+
+        virtual DataSet get_next(size_t) = 0;
+        virtual Data get_next() = 0;
+        virtual bool will_lock() = 0;
+    private:
+        StreamData( const StreamData& );
+        StreamData& operator=( const StreamData& );
+    };
+    
+    template<typename Data>
+    using StreamDataPtr = std::auto_ptr<StreamData<Data>>;
 }
